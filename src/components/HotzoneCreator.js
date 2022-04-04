@@ -1,6 +1,8 @@
 import {Form, Button, Modal} from 'react-bootstrap';
 import {useState} from 'react';
 import '../styles/HotzoneCreator.css';
+import { EventBridgeClient, PutEventsCommand } from "@aws-sdk/client-eventbridge";
+
 
 function HotzoneCreator() {
     const [latitude,setLatitude] = useState(null);
@@ -33,20 +35,57 @@ function HotzoneCreator() {
             document.getElementById('longitude').style.display = "block";
         }
         
-        if(!showLatitudeError && showLongitudeError){
-            fetch('urlhere', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({longitude: longitude, latitude: latitude})
-            })
-            //Parse response
-            .then((response) => response.json())
-            //Check response
-            .then(response => {
-                console.log(response)
-            });
+        if(!showLatitudeError && !showLongitudeError){
+
+            console.log('submit pressed');
+            sendDataToEventbridge();            
         }
 
+    }
+
+    async function sendDataToEventbridge(){
+        // a client can be shared by different commands.
+        const client = new EventBridgeClient({
+            region: "us-east-1",
+            credentials: {
+                accessKeyId: 'ASIAZRD3VUBCIN3YXDM2',
+                secretAccessKey: 'jA9TwPhww70VtSPrIKIK7vUy6nNKjpIV0FVArzEZ',
+                sessionToken:'FwoGZXIvYXdzEEEaDLaKM0jE+moFaqBdiSLAAYOrpkaN7KtoS+Cnh+Vpc8TUXLcMDwWTtAGOTJ84qnTaF4/DZSOuvVuiSJSyqjM8kDJUFbEo2GlAqbvn69Vw8bWTuj4uVZxfKyDDnsc2+HDDUJhp/JdGev48yyaL4T294tftY3+6SogMmFhNJyTh8nTK1fsqPyKbGadgvG7rD8OQAUbZ0AveE/F/7Y4wxPte//IwAP49PDbE4Qna8UhoVe8V6XJYESylIFLbCbGEwFoPRTGfueYAP1g9yozjo/9RniiL/ZSRBjItgALKeqP0pTEUdcD+cfgvCOA48Vc6pK8QcZFRbUjAbiQL8NZQuH4P68xKUG4o'
+            },
+        });
+
+        const params = {
+            Entries: [
+               { 
+                    Detail: JSON.stringify({
+                        "latitude": latitude,
+                        "longitude": longitude
+                    }),
+                    DetailType: 'hotzone',
+                    EventBusName: 'default',
+                    Source: 'cct-web',
+                }
+            ]
+        };
+
+        try {
+            const data = await client.send(new PutEventsCommand(params));
+            console.log("Success, event sent; requestID:", data);
+            return data; // For unit tests.
+          } catch (err) {
+            console.log("Error", err);
+          }
+
+
+        // client.send(command).then(
+        //     (data) => {
+        //         // process data.
+        //     },
+        //     (error) => {
+        //         // error handling.
+        //         console.log(error);
+        //     }
+        // );
     }
 
     return (
